@@ -11,10 +11,15 @@ solutions_summary = {}
 # n_agents = 4
 # epsilon = 0.9
 
+validity_respecting = True
+
 for n_agents in range(2, 6):
     for epsilon in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]:
 
-        problem, n_decision_vars, state_to_index_mapper = construct_optimization_problem(n_agents=n_agents, epsilon=epsilon)
+        problem, n_decision_vars, state_to_index_mapper = (
+            construct_optimization_problem(n_agents=n_agents,
+                                           epsilon=epsilon,
+                                           validity_respecting=validity_respecting))
         index_to_state_mapper = {}
         for state, index in state_to_index_mapper.items():
             index_to_state_mapper[index] = state
@@ -71,7 +76,8 @@ for n_agents in range(2, 6):
         solutions_summary[(n_agents, epsilon)] = (best_val, new_val, best_val_solution, solution.get_x())
 
 print(solutions_summary)
-filename = 'solutions_summary.pkl'
+validity_respecting_suffix = '_validity_respecting' if validity_respecting else ''
+filename = f'solutions_summary{validity_respecting_suffix}.pkl'
 with open(filename,"wb") as file:
     pickle.dump(solutions_summary, file)
 

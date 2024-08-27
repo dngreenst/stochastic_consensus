@@ -5,10 +5,24 @@ import numpy as np
 from binomial_coefficients import binomial_coefficients
 
 
-def construct_optimization_problem(n_agents: int, epsilon: float) -> (
+def construct_optimization_problem(n_agents: int, epsilon: float, validity_respecting: bool = False) -> (
         Tuple)[Callable[[np.ndarray], float], int, Dict[Tuple[int, int, int], int]]:
     possible_settings = set()
     event_probabilities: Dict[Tuple[int, int], Dict[Tuple[int, int, int], float]] = {}
+
+    validity_bound_states: Dict[Tuple[int, int, int], float] = {}
+    if validity_respecting:
+        for n_observed_ones in range(n_agents):
+            # If we observed no zeros, and the agents initial state is 1 (and therefore, all 0 state is impossible),
+            # it is possible that the system state is that all agents received 1.
+            # Therefore, we must output 1 with probability 1.
+            validity_bound_states[(1, n_observed_ones, 0)] = 1.0
+        for n_observed_zeros in range(n_agents):
+            # If we observed no ones, and the agents initial state is 0 (and therefore, all 1 state is impossible),
+            # it is possible that the system state is that all the agents received 0.
+            # Therefore, we must output 0 with probability 1 - or, equivalently, output 1 with probability 0.
+            validity_bound_states[(0, 0, n_observed_zeros)] = 0.0
+
     for self_state in range(2):
         for n_other_ones in range(n_agents):
             event_probabilities[(self_state, n_other_ones)] = {}
@@ -28,7 +42,8 @@ def construct_optimization_problem(n_agents: int, epsilon: float) -> (
                     objective_state = (self_state, n_other_ones)
                     subjective_state = (self_state, observed_ones_num, observed_zeros_num)
 
-                    possible_settings.add(subjective_state)
+                    if not validity_respecting or subjective_state not in validity_bound_states.keys():
+                        possible_settings.add(subjective_state)
 
                     event_probabilities[objective_state][subjective_state] = (
                         cast(float, num_viewed_ones_coefficients[observed_ones_num] *
@@ -67,7 +82,10 @@ def construct_optimization_problem(n_agents: int, epsilon: float) -> (
                     for observed_zeros_num in range(possible_remaining_zeros + 1):
                         state = (agent_state, observed_ones_num, observed_zeros_num)
                         state_probability = event_probabilities[objective_state][state]
-                        output_one_prob_in_state = clipped_p[setting_to_index_dict[state]]
+                        if validity_respecting and state in validity_bound_states.keys():
+                            output_one_prob_in_state = validity_bound_states[state]
+                        else:
+                            output_one_prob_in_state = clipped_p[setting_to_index_dict[state]]
 
                         output_one_prob += state_probability * output_one_prob_in_state
                         output_zero_prob += state_probability * (1.0 - output_one_prob_in_state)
